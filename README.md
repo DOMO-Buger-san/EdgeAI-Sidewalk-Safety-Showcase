@@ -16,6 +16,7 @@
 ## 🛡️ 雙核心系統架構
 
 ### 核心一：主動安全預警系統 (Active Safety System)
+![主動安全預警系統架構圖](architecture1.png)
 專注於解決大型車輛視野死角與內輪差造成的行人傷亡。
 
 1. **影像輸入**：攝影機 RTSP 串流 + 雷達感測器資料融合（Sensor Fusion）。
@@ -27,11 +28,12 @@
    * 輸出：自動雙軌錄影、Email 警報、LoRa 無線通報。
 
 ### 核心二：動態號誌節能系統 (Agentic AI Traffic Control)
+![動態號誌節能系統架構圖](architecture2.jpg)
 專注於解決傳統定時號誌導致的「無對向來車卻空等」之怠速碳排浩劫。
 
 1. **需求偵測 (Camera 1)**：監控紅燈停等區，當偵測到車輛或行人靜止等待超過 **5 秒**，啟動查核機制。
 2. **淨空確認 (Camera 2)**：聯動監控對向 160 公尺外車道，連續偵測 **10 秒** 確認達到「絕對淨空」標準。
-3. **自主介入放行**：當「有人空等」且「對向淨空」條件同時成立，Edge AI 自主觸發實體繼電器（點亮 110V 指示燈模擬綠燈），**無需破壞既有號誌電路，直接消滅無效怠速**。
+3. **介入放行**：當「有人空等」且「對向淨空」條件同時成立，Edge AI 自主干涉紅綠燈，紅燈變成綠燈，**無需破壞既有號誌電路，直接消滅無效怠速**。
 
 ---
 
@@ -41,7 +43,7 @@
 |------|------|
 | 核心演算法 | `YOLOv11s` 實例分割（Instance Segmentation） |
 | 邊緣部署框架 | NVIDIA `TensorRT` 底層硬體加速 |
-| 邊緣控制 | `Agentic AI` 邏輯決策 + 繼電器硬體控制 (GPIO) |
+| 邊緣控制 | `Edge AI` 邏輯決策 + 繼電器硬體控制 (GPIO) |
 | 計算精度 | `FP16` 半精度浮點數，契合 Tensor Core 算力 |
 | 開發環境 | `Docker` / `PyTorch` / `OpenCV` |
 | 硬體平台 | NVIDIA Jetson Orin Nano 8GB |
@@ -88,7 +90,7 @@
 | **形態學過濾** | 無車輛/行人時直接跳過 | 降低純背景畫面的無效 CPU 運算 |
 
 ### 效能取捨分析
-開發過程曾評估 `INT8` 量化，但因 YOLOv11s segmentation head 在 Jetpack6 TensorRT 上存在相容性問題導致匯出失敗。最終以 **TensorRT FP16 + 演算法快速過濾** 作為當前最佳平衡點，在幾乎無損精度的情況下，將警報反應時間壓縮至極限的 0.18 秒。
+開發過程曾評估 `INT8` 量化，但因 YOLOv11s segmentation head 在 Jetpack6 TensorRT 上存在相容性問題導致匯出失敗，後續持續嘗試中。最終以 **TensorRT FP16 + 演算法快速過濾** 作為當前最佳平衡點，在幾乎無損精度的情況下，將警報反應時間壓縮至極限的 0.18 秒。
 
 ---
 
@@ -98,37 +100,17 @@
 
 ![混淆矩陣](confusion_matrix_normalized.png)
 
-| 關鍵類別 | 辨識率 |
-|------|--------|
-| **bus (大客車)** | **0.97** |
-| **Truck-L (大型貨車)**| **0.93** |
-| **sidewalk (人行道)** | **0.93** |
-| **people (行人)** | **0.91** |
 
 FP16 量化後 Mask mAP50 僅下降 **0.4%**，確認輕量化工程不僅大幅降本增效，更絲毫未妥協真實路口的防護可靠度。
 
 ---
 
-## 🚀 快速開始
+## ⚙️ 系統部署環境 (Deployment Environment)
 
-### 環境需求
+本專案為實體落地系統，為確保高可用性與極低延遲，實際運行之軟硬體環境配置如下：
 
-- NVIDIA Jetson Orin Nano（Jetpack 6）
-- Docker
-- 模型檔案（`.engine` 或 `.pt`，不含於此 repo）
-
-### 安裝步驟
-
-```bash
-# 1. Clone 專案
-git clone [https://github.com/your_username/your_repo.git](https://github.com/your_username/your_repo.git)
-cd your_repo
-
-# 2. 建立環境設定檔
-cp .env.example .env
-nano .env         # 填入 Email、RTSP、繼電器 GPIO 腳位、模型路徑等設定
-
-# 3. 放置模型檔案（ver1.3.engine 或 ver1.3.pt）
-
-# 4. 啟動系統
-bash run_detector.sh
+- **邊緣運算硬體**：NVIDIA Jetson Orin Nano (8GB)
+- **作業系統**：Ubuntu 22.04 (NVIDIA JetPack 6)
+- **AI 加速框架**：NVIDIA TensorRT (FP16 精度)
+- **相依軟體**：Docker 容器化部署、OpenCV、PyTorch (僅用於模型預訓練與導出)
+- **周邊感測與控制**：IP Camera (RTSP 串流)、LoRa 無線傳輸模組、實體繼電器 (GPIO 號誌控制)
