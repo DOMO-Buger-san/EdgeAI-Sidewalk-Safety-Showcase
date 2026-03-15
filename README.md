@@ -124,3 +124,7 @@ FP16 量化後 Mask mAP50 僅下降 **0.4%**，確認輕量化工程不僅大幅
 - **AI 加速框架**：NVIDIA TensorRT (FP16 精度)
 - **相依軟體**：Docker 容器化部署、OpenCV、PyTorch (僅用於模型預訓練與導出)
 - **周邊感測與控制**：IP Camera (RTSP 串流)、LoRa 無線傳輸模組、實體繼電器 (GPIO 號誌控制)
+## 🎬 系統實機運作 Demo
+![違規預警實測1](result1.gif)
+![違規預警實測2](result2.gif)
+![違規預警實測3](result3.gif)
