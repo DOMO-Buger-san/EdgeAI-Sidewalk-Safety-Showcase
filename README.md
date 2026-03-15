@@ -1,2 +1,134 @@
-# EdgeAI-Sidewalk-Safety-Showcase
-基於 YOLOv11 與 TensorRT 的 Jetson Orin Nano 邊緣運算即時人行道違規檢測系統 
+# 🚦 Edge AI 智慧路口：主動安全防護與動態號誌節能系統
+基於 YOLOv11 與 TensorRT 的 Jetson Orin Nano 邊緣運算即時路口雙核心監控系統 
+
+> **⚠️ 商業保密聲明 (NDA Disclaimer)** > 本專案為與業界廠商合作之真實落地項目（已於花蓮縣特定路口進行 POC 場域驗證）。為遵守商業保密協定，本開源儲存庫**僅提供系統架構展示與 AI 輕量化效能分析**。核心模型權重（`.pt` / `.engine`）與專有訓練資料集均存放於 Private Repository，不對外公開。
+
+---
+
+## 📖 專案總覽
+
+本專案利用**邊緣運算（Edge AI）**與**電腦視覺（Computer Vision）**技術，打造具備「高韌性無線通訊」的智慧路口雙核心系統。不僅解決大型車輛（卡車、公車）內輪差違規駛入人行道的致命問題，更導入 **Agentic AI 自主決策機制**，動態消除路口無效紅燈怠速，實踐 ESG 淨零碳排。
+
+系統部署於 **NVIDIA Jetson Orin Nano**，透過 RTSP 影像串流進行 24/7 即時監控，具備太陽能獨立供電。
+
+---
+
+## 🛡️ 雙核心系統架構
+
+### 核心一：主動安全預警系統 (Active Safety System)
+專注於解決大型車輛視野死角與內輪差造成的行人傷亡。
+
+1. **影像輸入**：攝影機 RTSP 串流 + 雷達感測器資料融合（Sensor Fusion）。
+2. **AI 模型推論**：YOLOv11s 實例分割，輸出人行道（S）、卡車（T）、行人（P）遮罩與信心分數。
+3. **後處理模組**：形態學運算（Erode/Dilate）精煉遮罩邊緣，計算遮罩重疊面積（O_ST = S ∩ T）。
+4. **決策與告警**：
+   * 視覺高信心：IoU 或 Occupancy 超過門檻 → 觸發違規。
+   * 雷達輔助共判：視覺低信心但持續偵測，且人在人行道上 → 觸發違規。
+   * 輸出：自動雙軌錄影、Email 警報、LoRa 無線通報。
+
+### 核心二：動態號誌節能系統 (Agentic AI Traffic Control)
+專注於解決傳統定時號誌導致的「無對向來車卻空等」之怠速碳排浩劫。
+
+1. **需求偵測 (Camera 1)**：監控紅燈停等區，當偵測到車輛或行人靜止等待超過 **5 秒**，啟動查核機制。
+2. **淨空確認 (Camera 2)**：聯動監控對向 160 公尺外車道，連續偵測 **10 秒** 確認達到「絕對淨空」標準。
+3. **自主介入放行**：當「有人空等」且「對向淨空」條件同時成立，Edge AI 自主觸發實體繼電器（點亮 110V 指示燈模擬綠燈），**無需破壞既有號誌電路，直接消滅無效怠速**。
+
+---
+
+## 🧠 AI 技術與框架
+
+| 項目 | 技術 |
+|------|------|
+| 核心演算法 | `YOLOv11s` 實例分割（Instance Segmentation） |
+| 邊緣部署框架 | NVIDIA `TensorRT` 底層硬體加速 |
+| 邊緣控制 | `Agentic AI` 邏輯決策 + 繼電器硬體控制 (GPIO) |
+| 計算精度 | `FP16` 半精度浮點數，契合 Tensor Core 算力 |
+| 開發環境 | `Docker` / `PyTorch` / `OpenCV` |
+| 硬體平台 | NVIDIA Jetson Orin Nano 8GB |
+| 標注工具 | `Roboflow`（多邊形標注 + 資料集版本管理） |
+
+> 技術參考：[Ultralytics NVIDIA Jetson 部署指南](https://docs.ultralytics.com/zh/guides/nvidia-jetson/)
+
+---
+
+## 📊 資料集與標注
+
+本專案使用 **Roboflow** 作為標注工具，對路口監視影像進行多邊形實例分割標注。
+
+| 項目 | 內容 |
+|------|------|
+| 標注類別 | Truck / Truck-L / bus / car / people / sidewalk（6 類）|
+| 標注類型 | 多邊形遮罩（Instance Segmentation）|
+| 資料集版本 | v3（持續迭代擴充）|
+| 工具 | Roboflow 標注平台 + 資料增強 |
+
+---
+
+## ⚡ AI 輕量化與效能驗證（消融實驗）
+
+為克服邊緣裝置功耗上限（15W）、共享記憶體限制，並達到即時安全預警標準，系統性導入四大輕量化技術。
+
+### 實測結果（Jetson Orin Nano）
+
+| 評估指標 | 無輕量化基準<br>PyTorch FP32 | 優化完全體<br>TensorRT FP16 | 改善幅度 |
+|:--------|:--------------------------|:--------------------------|:--------|
+| **推論速度（FPS）** | 8.3 FPS | **29.7 FPS** | 🚀 **+258%** |
+| **系統延遲** | 127 ms | **34 ms** | ⏱️ **↓73%** |
+| **警報反應時間** | 0.64 秒 | **0.18 秒** | 🚨 **↓72%** (卡車位移 9m 縮減至 2.5m) |
+| **每幀能耗** | 0.637 J/幀 | **0.215 J/幀** | 🔋 **↓66%** |
+| **Mask mAP50** | 0.943 | **0.939** | 精度損失 **−0.4%** |
+
+### 四大輕量化措施
+
+| 措施 | 方法 | 效果 |
+|------|------|------|
+| **模型量化** | FP32 → FP16，TensorRT 編譯 | 推理時間 ↓50%，完美釋放 GPU 算力 |
+| **跳幀推理** | Temporal Subsampling N=3 | 整體 FPS 8.3 → 29.7，突破即時門檻 |
+| **資源管理** | psutil 非阻塞、resize 合併 | 消除每次監控的強制等待延遲 |
+| **形態學過濾** | 無車輛/行人時直接跳過 | 降低純背景畫面的無效 CPU 運算 |
+
+### 效能取捨分析
+開發過程曾評估 `INT8` 量化，但因 YOLOv11s segmentation head 在 Jetpack6 TensorRT 上存在相容性問題導致匯出失敗。最終以 **TensorRT FP16 + 演算法快速過濾** 作為當前最佳平衡點，在幾乎無損精度的情況下，將警報反應時間壓縮至極限的 0.18 秒。
+
+---
+
+## 🎯 模型辨識能力
+
+混淆矩陣顯示 FP32 基準模型六類平均辨識率達 **93%**：
+
+![混淆矩陣](confusion_matrix_normalized.png)
+
+| 關鍵類別 | 辨識率 |
+|------|--------|
+| **bus (大客車)** | **0.97** |
+| **Truck-L (大型貨車)**| **0.93** |
+| **sidewalk (人行道)** | **0.93** |
+| **people (行人)** | **0.91** |
+
+FP16 量化後 Mask mAP50 僅下降 **0.4%**，確認輕量化工程不僅大幅降本增效，更絲毫未妥協真實路口的防護可靠度。
+
+---
+
+## 🚀 快速開始
+
+### 環境需求
+
+- NVIDIA Jetson Orin Nano（Jetpack 6）
+- Docker
+- 模型檔案（`.engine` 或 `.pt`，不含於此 repo）
+
+### 安裝步驟
+
+```bash
+# 1. Clone 專案
+git clone [https://github.com/your_username/your_repo.git](https://github.com/your_username/your_repo.git)
+cd your_repo
+
+# 2. 建立環境設定檔
+cp .env.example .env
+nano .env         # 填入 Email、RTSP、繼電器 GPIO 腳位、模型路徑等設定
+
+# 3. 放置模型檔案（ver1.3.engine 或 ver1.3.pt）
+
+# 4. 啟動系統
+bash run_detector.sh
